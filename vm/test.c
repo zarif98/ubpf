@@ -45,19 +45,23 @@ static void usage(const char *name)
 int main(int argc, char **argv)
 {
     struct option longopts[] = {
-        { .name = "help", .val = 'h', },
-        { .name = "mem", .val = 'm', .has_arg=1 },
-        { .name = "jit", .val = 'j' },
-        { .name = "register-offset", .val = 'r', .has_arg=1 },
-        { }
-    };
+        {
+            .name = "help",
+            .val = 'h',
+        },
+        {.name = "mem", .val = 'm', .has_arg = 1},
+        {.name = "jit", .val = 'j'},
+        {.name = "register-offset", .val = 'r', .has_arg = 1},
+        {}};
 
     const char *mem_filename = NULL;
     bool jit = false;
 
     int opt;
-    while ((opt = getopt_long(argc, argv, "hm:jr:", longopts, NULL)) != -1) {
-        switch (opt) {
+    while ((opt = getopt_long(argc, argv, "hm:jr:", longopts, NULL)) != -1)
+    {
+        switch (opt)
+        {
         case 'm':
             mem_filename = optarg;
             break;
@@ -76,29 +80,34 @@ int main(int argc, char **argv)
         }
     }
 
-    if (argc != optind + 1) {
+    if (argc != optind + 1)
+    {
         usage(argv[0]);
         return 1;
     }
 
     const char *code_filename = argv[optind];
     size_t code_len;
-    void *code = readfile(code_filename, 1024*1024, &code_len);
-    if (code == NULL) {
+    void *code = readfile(code_filename, 1024 * 1024, &code_len);
+    if (code == NULL)
+    {
         return 1;
     }
 
     size_t mem_len = 0;
     void *mem = NULL;
-    if (mem_filename != NULL) {
-        mem = readfile(mem_filename, 1024*1024, &mem_len);
-        if (mem == NULL) {
+    if (mem_filename != NULL)
+    {
+        mem = readfile(mem_filename, 1024 * 1024, &mem_len);
+        if (mem == NULL)
+        {
             return 1;
         }
     }
 
     struct ubpf_vm *vm = ubpf_create();
-    if (!vm) {
+    if (!vm)
+    {
         fprintf(stderr, "Failed to create VM\n");
         return 1;
     }
@@ -113,15 +122,19 @@ int main(int argc, char **argv)
 
     char *errmsg;
     int rv;
-    if (elf) {
-	rv = ubpf_load_elf(vm, code, code_len, &errmsg);
-    } else {
-	rv = ubpf_load(vm, code, code_len, &errmsg);
+    if (elf)
+    {
+        rv = ubpf_load_elf(vm, code, code_len, &errmsg);
+    }
+    else
+    {
+        rv = ubpf_load(vm, code, code_len, &errmsg);
     }
 
     free(code);
 
-    if (rv < 0) {
+    if (rv < 0)
+    {
         fprintf(stderr, "Failed to load code: %s\n", errmsg);
         free(errmsg);
         ubpf_destroy(vm);
@@ -130,20 +143,24 @@ int main(int argc, char **argv)
 
     uint64_t ret;
 
-    if (jit) {
+    if (jit)
+    {
         ubpf_jit_fn fn = ubpf_compile(vm, &errmsg);
-        if (fn == NULL) {
+        if (fn == NULL)
+        {
             fprintf(stderr, "Failed to compile: %s\n", errmsg);
             free(errmsg);
             return 1;
         }
         ret = fn(mem, mem_len);
-    } else {
+    }
+    else
+    {
         if (ubpf_exec(vm, mem, mem_len, &ret) < 0)
             ret = UINT64_MAX;
     }
 
-    printf("0x%"PRIx64"\n", ret);
+    printf("0x%" PRIx64 "\n", ret);
 
     ubpf_destroy(vm);
 
@@ -153,13 +170,17 @@ int main(int argc, char **argv)
 static void *readfile(const char *path, size_t maxlen, size_t *len)
 {
     FILE *file;
-    if (!strcmp(path, "-")) {
+    if (!strcmp(path, "-"))
+    {
         file = fdopen(STDIN_FILENO, "r");
-    } else {
+    }
+    else
+    {
         file = fopen(path, "r");
     }
 
-    if (file == NULL) {
+    if (file == NULL)
+    {
         fprintf(stderr, "Failed to open %s: %s\n", path, strerror(errno));
         return NULL;
     }
@@ -167,18 +188,21 @@ static void *readfile(const char *path, size_t maxlen, size_t *len)
     void *data = calloc(maxlen, 1);
     size_t offset = 0;
     size_t rv;
-    while ((rv = fread(data+offset, 1, maxlen-offset, file)) > 0) {
+    while ((rv = fread(data + offset, 1, maxlen - offset, file)) > 0)
+    {
         offset += rv;
     }
 
-    if (ferror(file)) {
+    if (ferror(file))
+    {
         fprintf(stderr, "Failed to read %s: %s\n", path, strerror(errno));
         fclose(file);
         free(data);
         return NULL;
     }
 
-    if (!feof(file)) {
+    if (!feof(file))
+    {
         fprintf(stderr, "Failed to read %s because it is too large (max %u bytes)\n",
                 path, (unsigned)maxlen);
         fclose(file);
@@ -187,7 +211,8 @@ static void *readfile(const char *path, size_t maxlen, size_t *len)
     }
 
     fclose(file);
-    if (len) {
+    if (len)
+    {
         *len = offset;
     }
     return data;
@@ -197,27 +222,44 @@ static uint64_t
 gather_bytes(uint8_t a, uint8_t b, uint8_t c, uint8_t d, uint8_t e)
 {
     return ((uint64_t)a << 32) |
-        ((uint32_t)b << 24) |
-        ((uint32_t)c << 16) |
-        ((uint16_t)d << 8) |
-        e;
+           ((uint32_t)b << 24) |
+           ((uint32_t)c << 16) |
+           ((uint16_t)d << 8) |
+           e;
 }
 
 static void
 trash_registers(void)
 {
-    /* Overwrite all caller-save registers */
+/* Overwrite all callee-save registers */
+//ARM version
+#ifdef __aarch64__
     asm(
-        "mov $0xf0, %rax;"
-        "mov $0xf1, %rcx;"
-        "mov $0xf2, %rdx;"
-        "mov $0xf3, %rsi;"
-        "mov $0xf4, %rdi;"
-        "mov $0xf5, %r8;"
-        "mov $0xf6, %r9;"
-        "mov $0xf7, %r10;"
-        "mov $0xf8, %r11;"
+        "MOV x19, #0xf0;"
+        "MOV x21, #0xf1;"
+        "MOV x22, #0xf2;"
+        "MOV x24, #0xf3;"
+        "MOV x25, #0xf4;"
+        "MOV x26, #0xf5;"
+        "MOV x27, #0xf6;"
+        "MOV x28, #0xf7;"
+        "MOV x20, #0xf8;");
+
+#else
+    //x86 code using Callee registers
+    asm(
+        "MOV $0xf0, %rax;"
+        "MOV $0xf1, %rcx;"
+        "MOV $0xf2, %rdx;"
+        "MOV $0xf3, %rsi;"
+        "MOV $0xf4, %rdi;"
+        "MOV $0xf5, %r8;"
+        "MOV $0xf6, %r9;"
+        "MOV $0xf7, %r10;"
+        "MOV $0xf8, %r11;");
     );
+
+#endif
 }
 
 static uint32_t
